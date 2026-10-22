@@ -17,10 +17,25 @@ package testutils
 import (
 	"fmt"
 
-	"github.com/mitchellh/go-testing-interface"
-
 	"github.com/GoogleCloudPlatform/cloud-foundation-toolkit/infra/blueprint-test/pkg/gcloud"
+	"github.com/GoogleCloudPlatform/cloud-foundation-toolkit/infra/blueprint-test/pkg/utils"
+	"github.com/mitchellh/go-testing-interface"
+	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
+
+// AssertClusterNetworkTags checks that the auto-provisioning config (Autopilot and NAP)
+// and every node pool of the cluster contain all the expected network tags.
+func AssertClusterNetworkTags(assert *assert.Assertions, clusterOp gjson.Result, clusterType string, clusterID string, expectedTags []string) {
+	if clusterType == "AUTOPILOT" || clusterType == "STANDARD-NAP" {
+		autoConfigTags := utils.GetResultStrSlice(clusterOp.Get("nodePoolAutoConfig.networkTags.tags").Array())
+		assert.Subset(autoConfigTags, expectedTags, fmt.Sprintf("Cluster %s nodePoolAutoConfig should contain network tags %v", clusterID, expectedTags))
+	}
+	for _, pool := range clusterOp.Get("nodePools").Array() {
+		poolTags := utils.GetResultStrSlice(pool.Get("config.tags").Array())
+		assert.Subset(poolTags, expectedTags, fmt.Sprintf("Cluster %s node pool %s should contain network tags %v", clusterID, pool.Get("name").String(), expectedTags))
+	}
+}
 
 // GetOrgACMPolicyID gets the Organization Access Context Manager Policy ID
 func GetOrgACMPolicyID(t testing.TB, orgID string) string {
